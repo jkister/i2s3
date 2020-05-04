@@ -1,0 +1,15 @@
+# https://www.freedesktop.org/software/systemd/man/systemd.service.html
+[Unit]
+Description=i2s3 Amazon File Pusher
+After=network.target
+
+[Service]
+ExecStart=/usr/local/script/i2s3.pl -f
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+Type=simple
+# could easily be Type=forking, add PIDFile=..
+
+[Install]
+WantedBy=multi-user.target

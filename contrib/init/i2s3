@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# update-rc.d i2s3 defaults
+### BEGIN INIT INFO
+# Provides:          i2s3
+# Required-Start:    $syslog $network $time
+# Required-Stop:     $syslog $network
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: i2s3
+# Description:       watch a directory. upload files that appear to s3.
+### END INIT INFO
+
+case "$1" in
+    start)
+        /usr/local/script/i2s3.pl -Q
+    ;;
+
+    stop)
+        kill `cat /var/run/i2s3.pid`
+    ;;
+    *)
+        echo usage: $0 'start|stop'
+        exit 1
+    ;;
+esac
+exit 0

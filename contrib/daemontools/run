@@ -1,0 +1,11 @@
+#!/bin/sh
+
+exec 2>&1
+
+echo "*****************************************************"
+
+exec /usr/bin/nice -5 \
+ /usr/local/bin/setuidgid nobody \
+   /usr/local/script/i2s3.pl -f
+
+echo "*****************************************************"

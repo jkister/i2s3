@@ -1,0 +1,41 @@
+
+sudo mkdir -p /usr/local/script
+sudo install -o root -g root -m 755 i2s3.pl /usr/local/script/i2s3.pl
+
+sudo cp contrib/i2s3.cfg /etc
+sudo install -o root -g nogroup -m 0640 /tmp/i2s3.cfg /etc/i2s3.cfg
+#
+# set appropriate things in /etc/i2s3.cfg
+
+# needs perl modules Amazon::S3, Linux::Inotify2, MIME::Types, Sys::SigAction
+# - like with devuan/debian
+sudo apt-get update
+sudo apt-get -y install \
+ libamazon-s3-perl \
+ liblinux-inotify2-perl \
+ libmime-types-perl \
+ libsys-sigaction-perl
+
+# make queue directory like
+mkdir /tmp/i2s3q
+
+------------------------------
+------------------------------
+
+## start/manage with daemontools
+sudo mkdir -p /service/i2s3/log
+sudo install -o root -g root -m 0755 contrib/daemontools/run /service/i2s3/run
+sudo install -o root -g root -m 0755 contrib/daemontools/log/run /service/i2s3/log/run
+
+## start with init on devuan/debian (be sure to enable syslog)
+sudo install -o root -g root -m 0755 contrib/init/i2s3 /etc/init.d/
+sudo update-rc.d i2s3 defaults
+sudo update-rc.d i2s3 enable
+sudo /etc/init.d/i2s3 start
+
+## start/manage with systemd (bleh)
+sudo cp contrib/systemd/i2s3.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable i2s3
+sudo systemctl start i2s3
+
