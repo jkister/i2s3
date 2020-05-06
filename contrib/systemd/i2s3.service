@@ -5,9 +5,9 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/script/i2s3.pl -f
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -TERM $MAINPID
 KillMode=process
-Restart=on-failure
+Restart=always
 Type=simple
 # could easily be Type=forking, add PIDFile=..
 
