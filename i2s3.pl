@@ -4,7 +4,7 @@
 # Copyright (C) 2020 Jeremy Kister
 # https://gitub.com/jkister/i2s3
 # https://jeremy.kister.net/
-# 2020050301
+# 2020050601
 
 use strict;
 use Amazon::S3;
@@ -121,6 +121,8 @@ add_watcher($opt{queue}); # watch the main directory
 process_queue($opt{queue});
 undef $in_bucket; # not needed any more
 
+$SIG{TERM} = $SIG{INT} = sub { sighandler(@_) } if $opt{foreground};
+
 while( 1 ){
     debug("start poll loop");
     1 while $i->poll; # interrupted by signals
@@ -133,7 +135,7 @@ sub process_queue {
 
     debug("processing dir: ", $dir);
     opendir(my $qdir, $dir) || slowerr("cannot open queue directory: ", $!);
-    for my $file (grep {!/^\./} readdir $qdir){
+    for my $file (sort { $a <=> $b || $a cmp $b } grep {!/^\./} readdir $qdir){
         my $fname = "$dir/$file";
         if(-d $fname){
             add_watcher($fname);
@@ -143,15 +145,30 @@ sub process_queue {
             debug("queue skipping special file: ", $fname);
             next;
         }
- 
+
+        my $mtime = (stat($fname))[9];
         if($in_bucket){
-            my $digest = get_digest($fname);
             my $rname = substr $fname, $opt{strip};
-            if($in_bucket->{$rname} eq $digest){
-                debug("local file $file matches remote md5 $digest");
-                $known{$fname} = $digest;
-                next;
+        
+            if($in_bucket->{$rname}){
+                my $digest = get_digest($fname);
+                if($in_bucket->{$rname} eq $digest){
+                    debug("[$file] md5 match [$digest]");
+                    $known{$fname} = { mtime => $mtime, success => 1 };
+                    next;
+                }else{
+                    debug("[$file] md5 mismatch");
+                }
+            }else{
+                # on startup, could be local but not on s3
+                debug("[$file] not in s3 bucket");
             }
+        }
+
+        if( $known{$fname}{mtime} == $mtime && $known{$fname}{success} ){
+            # only comparing times, not actual file contents.
+            debug("[$file] already uploaded with mtime: ", $mtime);
+            next;
         }
 
         s3move($fname);
@@ -163,6 +180,7 @@ sub get_inbucket {
     my $bucket = shift;
 
     return if $opt{delete};
+    debug("getting contents of bucket");
 
     my %hash;
     for my $object (@{ $s3->list_bucket_all({ bucket => $bucket })->{keys} }){
@@ -204,8 +222,9 @@ sub add_watcher {
             add_watcher($fname);
             process_queue($fname);
         }elsif(-f $fname){
-             debug("see new file: ", $fname);
-             s3move($fname);
+            debug("see new file: ", $fname);
+            $known{$fname}{mtime} = (stat($fname))[9]; # if time() was off even by a second = bad
+            s3move($fname);
         }else{
             debug("watcher skipping special file: ", $fname);
         }
@@ -225,17 +244,7 @@ sub s3move {
         return;
     }
 
-    my $digest;
-    unless($opt{delete}){
-        # should this really be uploaded?
-        $digest = get_digest($fname);
-        if( $known{$fname} eq $digest ){
-            debug("already uploaded this file");
-            return;
-        }
-    }
-
-    my $rname = substr $fname, $opt{strip};
+    my $rname = substr $fname, $opt{strip}; # /tmp/i2s3q/foo/1.txt -> foo/1.txt
     my $ct = $mime->mimeTypeOf($fname) || 'application/octet-stream';
 
     my $old_time;
@@ -267,10 +276,10 @@ sub s3move {
         if($opt{delete}){
             debug("unlinking: ", $fname);
             unlink($fname) || verbose("could not delete $fname: ", $!);
-        }else{
-            # save that i know about this file for reprocess_queue
-            $known{$fname} = $digest;
         }
+
+        # save that this file has successfully been sent to s3
+        $known{$fname}{success} = 1;
     }
 
     my $delta = $old_time - time();
@@ -405,7 +414,7 @@ sub help {
     -D, --debug             print debug messages
     -Q, --quiet             hush console output
 
-    -d, --delete            delete local files after uloading to s3 (*recommended)
+    -d, --delete            delete local files after uloading to s3
     -f, --foreground        stay foreground; dont fork
     -p, --piddir            create pid file here
     -q, --queue             queue directory to monitor
