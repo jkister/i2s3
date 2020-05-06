@@ -36,7 +36,7 @@ echo test > /tmp/i2s3q/foo/bar/baz/test.txt
     -D, --debug             print debug messages
     -Q, --quiet             hush console output
 
-    -d, --delete            delete local files after uloading to s3 (*recommended)
+    -d, --delete            delete local files after uloading to s3
     -f, --foreground        stay foreground; dont fork
     -p, --piddir            create pid file here
     -q, --queue             queue directory to monitor
@@ -50,6 +50,7 @@ echo test > /tmp/i2s3q/foo/bar/baz/test.txt
     --bucket                upload objects to this s3 bucket
 
 
-### *NOTE: /not/ using --delete can incurr a large cost in cpu.  queue is most
-efficient when a file is copied for s3 upload and no longer needed locally.
+NOTE: /not/ using --delete incurrs cost in cpu (and some ram).  This is because
+each local file must be tracked to make sure we don't keep uploading non-changed files
+amazon during our queue check/reprocess.  resources are fine when i tested at 10,000 files.
 
