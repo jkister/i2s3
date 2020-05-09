@@ -212,6 +212,11 @@ sub add_watcher {
         my $e = shift;
         my $fname = $e->fullname; # nb $e->name is without path
 
+        if($e->IN_Q_OVERFLOW){
+            # informational only really, we reprocess the queue regularly.
+            verbose("events have been lost IN_Q_OVERFLOW - detected via ", $fname);
+        }
+
         return if( $e->IN_IGNORED && (! -e $fname) ); # a removed directory
 
         if($e->IN_CREATE || $e->IN_ISDIR){
